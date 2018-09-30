@@ -1,11 +1,12 @@
 # ktor-retrofit
-Turns a Retrofit service interface into Ktor routing. Very early stage prototype.
+Turns a Retrofit service interface into Ktor routing. Very early stage 
+prototype.
 
 You use Retrofit on the client side to access the end points of your server,
 why not use that same interface to define the routings? The idea is to use an
-implementation of the interface and install it as a feature into the Ktor,
-dynamically construct routings from the annotations, and call the implementation
-when the end point is accessed.
+implementation of the interface and install it as a feature in Ktor, dynamically
+construct routings from the annotations, and call the implementation when the
+end point is accessed.
 
 ## Example
 
