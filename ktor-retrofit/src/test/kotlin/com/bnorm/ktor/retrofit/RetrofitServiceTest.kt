@@ -17,11 +17,14 @@
 package com.bnorm.ktor.retrofit
 
 import io.ktor.application.Application
+import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.ContentNegotiation
+import io.ktor.features.StatusPages
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.jackson.jackson
+import io.ktor.response.respond
 import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.withTestApplication
 import org.junit.Test
@@ -29,6 +32,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import retrofit2.Call
 import retrofit2.http.GET
 import retrofit2.http.Path
+import kotlin.test.fail
 
 interface Service {
   @GET("string")
@@ -45,11 +49,11 @@ fun Application.module() {
 
   install(RetrofitService) {
     service(baseUrl = "api", service = object : Service {
-      override fun getAll(): Call<List<String>> = call {
+      override fun getAll() = call {
         return@call listOf("first", "second")
       }
 
-      override fun getSingle(id: Long): Call<String> = call {
+      override fun getSingle(id: Long) = call {
         return@call when (id) {
           0L -> "first"
           1L -> "second"
@@ -61,9 +65,8 @@ fun Application.module() {
 }
 
 class RetrofitServiceTest {
-
   @Test
-  fun feature(): Unit = withTestApplication(Application::module) {
+  fun simple(): Unit = withTestApplication(Application::module) {
     with(handleRequest(HttpMethod.Get, "/api/string")) {
       assertEquals(HttpStatusCode.OK, response.status())
       assertEquals("[\"first\",\"second\"]", response.content)
@@ -73,9 +76,25 @@ class RetrofitServiceTest {
       assertEquals(HttpStatusCode.OK, response.status())
       assertEquals("second", response.content)
     }
+  }
 
-    // with(handleRequest(HttpMethod.Get, "/api/string/2")) {
-    //   assertEquals(HttpStatusCode.InternalServerError, response.status())
-    // }
+  @Test
+  fun error(): Unit = withTestApplication(Application::module) {
+    try {
+      handleRequest(HttpMethod.Get, "/api/string/2")
+      fail()
+    } catch (e : IndexOutOfBoundsException)   {
+      assertEquals("id=2", e.message)
+    }
+
+//    application.install(StatusPages) {
+//      exception<Throwable> {
+//        call.respond(HttpStatusCode.InternalServerError, "Error")
+//      }
+//    }
+//
+//    with(handleRequest(HttpMethod.Get, "/api/string/2")) {
+//      assertEquals(HttpStatusCode.InternalServerError, response.status())
+//    }
   }
 }

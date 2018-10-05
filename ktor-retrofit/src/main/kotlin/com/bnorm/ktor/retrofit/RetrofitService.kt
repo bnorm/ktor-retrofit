@@ -35,8 +35,6 @@ import io.ktor.routing.put
 import io.ktor.routing.route
 import io.ktor.routing.routing
 import io.ktor.util.AttributeKey
-import retrofit2.Call
-import retrofit2.Callback
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -53,6 +51,10 @@ import kotlin.reflect.KParameter
 import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.superclasses
 import kotlin.reflect.jvm.javaType
+
+interface ServiceAction<T> {
+  fun PipelineContext<*, ApplicationCall>.perform(): T
+}
 
 class RetrofitService {
   class Configuration {
@@ -189,28 +191,8 @@ class RetrofitService {
 
       // This is a big cheat
       // TODO(bnorm): is there a better way to pass through the action that needs to take place?
-      val hasAction = function.callBy(parameters) as HasAction<Any>
-      return hasAction.action(this)
+      val action = function.callBy(parameters) as ServiceAction<Any>
+      return with(action) { perform() }
     }
   }
-}
-
-typealias Action<T> = suspend PipelineContext<*, ApplicationCall>.() -> T
-
-interface HasAction<T> {
-  val action: Action<T>
-}
-
-fun <T> RetrofitService.Configuration.call(action: Action<T>): Call<T> {
-  class KtorCall<T>(override val action: Action<T>) : Call<T>, HasAction<T> {
-    override fun enqueue(callback: Callback<T>) = throw NotImplementedError("unused")
-    override fun isExecuted() = throw NotImplementedError("unused")
-    override fun clone() = throw NotImplementedError("unused")
-    override fun isCanceled() = throw NotImplementedError("unused")
-    override fun cancel() = throw NotImplementedError("unused")
-    override fun execute() = throw NotImplementedError("unused")
-    override fun request() = throw NotImplementedError("unused")
-  }
-
-  return KtorCall(action)
 }

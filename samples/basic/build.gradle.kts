@@ -11,14 +11,13 @@ repositories {
 }
 
 dependencies {
-  implementation(kotlin("stdlib-jdk8"))
-  implementation("io.ktor:ktor-server-core:0.9.5")
-  implementation("com.squareup.retrofit2:retrofit:2.4.0")
+  implementation(project(":ktor-retrofit"))
 
-  testCompile("org.junit.jupiter:junit-jupiter-api:5.1.1")
-  testRuntime("org.junit.jupiter:junit-jupiter-engine:5.1.1")
-  testCompile("io.ktor:ktor-server-test-host:0.9.5")
-  testCompile("io.ktor:ktor-jackson:0.9.5")
+  implementation(kotlin("stdlib-jdk8"))
+  implementation("ch.qos.logback:logback-classic:1.2.3")
+  implementation("io.ktor:ktor-server-netty:0.9.5")
+  implementation("io.ktor:ktor-jackson:0.9.5")
+  implementation("com.squareup.retrofit2:retrofit:2.4.0")
 }
 
 kotlin {
