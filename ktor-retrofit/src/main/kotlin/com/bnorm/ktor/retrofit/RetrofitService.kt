@@ -22,7 +22,6 @@ import io.ktor.application.ApplicationFeature
 import io.ktor.application.call
 import io.ktor.features.conversionService
 import io.ktor.http.HttpMethod
-import io.ktor.pipeline.PipelineContext
 import io.ktor.request.receive
 import io.ktor.response.respond
 import io.ktor.routing.Route
@@ -30,6 +29,7 @@ import io.ktor.routing.delete
 import io.ktor.routing.get
 import io.ktor.routing.head
 import io.ktor.routing.options
+import io.ktor.routing.patch
 import io.ktor.routing.post
 import io.ktor.routing.put
 import io.ktor.routing.route
@@ -41,20 +41,19 @@ import retrofit2.http.GET
 import retrofit2.http.HEAD
 import retrofit2.http.HTTP
 import retrofit2.http.OPTIONS
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
+import java.lang.reflect.InvocationTargetException
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KParameter
+import kotlin.reflect.full.callSuspend
 import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.superclasses
 import kotlin.reflect.jvm.javaType
-
-interface ServiceAction<T> {
-  fun PipelineContext<*, ApplicationCall>.perform(): T
-}
 
 class RetrofitService {
   class Configuration {
@@ -77,6 +76,7 @@ class RetrofitService {
           val serviceInterface = entry.key::class.superclasses.single { it != Any::class }
           route(entry.value ?: "/") {
             for (declaredFunction in serviceInterface.declaredFunctions) {
+              if (!declaredFunction.isSuspend) TODO("only suspend Retrofit functions are supported")
               process(entry.key, declaredFunction)
             }
           }
@@ -120,6 +120,14 @@ class RetrofitService {
         return
       }
 
+      val patch = annotations.filterIsInstance<PATCH>().singleOrNull()
+      if (patch != null) {
+        patch(patch.value) {
+          call.respond(invoke(call, service, function))
+        }
+        return
+      }
+
       val head = annotations.filterIsInstance<HEAD>().singleOrNull()
       if (head != null) {
         head(head.value) {
@@ -146,28 +154,28 @@ class RetrofitService {
         return
       }
 
-      TODO("implement the rest of the function annotations? : $annotations")
+      TODO("implement the rest of the function annotations : $annotations")
     }
 
-    private suspend fun PipelineContext<*, ApplicationCall>.invoke(
+    private suspend fun invoke(
       call: ApplicationCall,
       service: Any,
       function: KFunction<*>
     ): Any {
       val conversionService = call.application.conversionService
 
-      val parameters: Map<KParameter, Any?> = function.parameters.map {
+      val parameters: Array<Any?> = function.parameters.map {
         if (it.kind == KParameter.Kind.INSTANCE) {
-          return@map it to service
+          return@map service
         }
 
         val path = it.annotations.filterIsInstance<Path>().singleOrNull()
         if (path != null) {
           val values = call.parameters.getAll(path.value)
           if (values != null) {
-            return@map it to conversionService.fromValues(values, it.type.javaType)
+            return@map conversionService.fromValues(values, it.type.javaType)
           } else {
-            return@map it to null
+            return@map null
           }
         }
 
@@ -175,24 +183,25 @@ class RetrofitService {
         if (query != null) {
           val values = call.parameters.getAll(query.value)
           if (values != null) {
-            return@map it to conversionService.fromValues(values, it.type.javaType)
+            return@map conversionService.fromValues(values, it.type.javaType)
           } else {
-            return@map it to null
+            return@map null
           }
         }
 
         val body = it.annotations.filterIsInstance<Body>().singleOrNull()
         if (body != null) {
-          return@map it to call.receive(it.type.classifier as KClass<Any>)
+          return@map call.receive(it.type.classifier as KClass<Any>)
         }
 
         TODO("annotations=${it.annotations}")
-      }.toMap()
+      }.toTypedArray()
 
-      // This is a big cheat
-      // TODO(bnorm): is there a better way to pass through the action that needs to take place?
-      val action = function.callBy(parameters) as ServiceAction<Any>
-      return with(action) { perform() }
+      try {
+        return function.callSuspend(*parameters) ?: TODO()
+      } catch (t: InvocationTargetException) {
+        throw t.targetException
+      }
     }
   }
 }

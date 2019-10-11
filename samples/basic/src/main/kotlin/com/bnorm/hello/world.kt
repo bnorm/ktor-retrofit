@@ -17,38 +17,32 @@
 package com.bnorm.hello
 
 import com.bnorm.ktor.retrofit.RetrofitService
-import com.bnorm.ktor.retrofit.call
-import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.CallLogging
 import io.ktor.features.ContentNegotiation
-import io.ktor.features.StatusPages
-import io.ktor.http.HttpStatusCode
 import io.ktor.jackson.jackson
-import io.ktor.response.respond
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.slf4j.event.Level
-import retrofit2.Call
 import retrofit2.http.GET
 import retrofit2.http.Path
-import java.util.*
+import java.util.UUID
 
 interface Service {
   @GET("string")
-  fun getAll(): Call<List<String>>
+  suspend fun getAll(): List<String>
 
   @GET("string/{id}")
-  fun getSingle(@Path("id") id: Long): Call<String>
+  suspend fun getSingle(@Path("id") id: Long): String
 }
 
 object BackendService : Service {
-  override fun getAll() = call {
-    return@call listOf("first", "second")
+  override suspend fun getAll(): List<String> {
+    return listOf("first", "second")
   }
 
-  override fun getSingle(id: Long) = call {
-    return@call when (id) {
+  override suspend fun getSingle(id: Long): String {
+    return when (id) {
       0L -> "first"
       1L -> "second"
       else -> throw IndexOutOfBoundsException("id=$id")
@@ -56,16 +50,11 @@ object BackendService : Service {
   }
 }
 
-fun main(args: Array<String>) {
+fun main() {
   embeddedServer(Netty, port = 8080) {
     install(CallLogging) {
       level = Level.INFO
       mdc("id") { UUID.randomUUID().toString().substring(0, 8) }
-    }
-    install(StatusPages) {
-      exception<Throwable> {
-        call.respond(HttpStatusCode.InternalServerError)
-      }
     }
     install(ContentNegotiation) {
       jackson { }

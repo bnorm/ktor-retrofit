@@ -1,8 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import org.jetbrains.kotlin.gradle.dsl.Coroutines
 
 plugins {
-  kotlin("jvm") version "1.2.71"
+  kotlin("jvm")
 }
 
 repositories {
@@ -12,17 +11,13 @@ repositories {
 
 dependencies {
   implementation(kotlin("stdlib-jdk8"))
-  implementation("io.ktor:ktor-server-core:0.9.5")
-  implementation("com.squareup.retrofit2:retrofit:2.4.0")
+  api("io.ktor:ktor-server-core:1.2.5")
+  api("com.squareup.retrofit2:retrofit:2.6.1")
 
-  testCompile("org.junit.jupiter:junit-jupiter-api:5.1.1")
+  testImplementation("org.junit.jupiter:junit-jupiter-api:5.1.1")
   testRuntime("org.junit.jupiter:junit-jupiter-engine:5.1.1")
-  testCompile("io.ktor:ktor-server-test-host:0.9.5")
-  testCompile("io.ktor:ktor-jackson:0.9.5")
-}
-
-kotlin {
-  experimental.coroutines = Coroutines.ENABLE
+  testImplementation("io.ktor:ktor-server-test-host:1.2.5")
+  testImplementation("io.ktor:ktor-jackson:1.2.5")
 }
 
 tasks.withType<KotlinCompile> {
