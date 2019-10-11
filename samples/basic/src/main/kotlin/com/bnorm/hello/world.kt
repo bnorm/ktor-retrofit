@@ -36,20 +36,6 @@ interface Service {
   suspend fun getSingle(@Path("id") id: Long): String
 }
 
-object BackendService : Service {
-  override suspend fun getAll(): List<String> {
-    return listOf("first", "second")
-  }
-
-  override suspend fun getSingle(id: Long): String {
-    return when (id) {
-      0L -> "first"
-      1L -> "second"
-      else -> throw IndexOutOfBoundsException("id=$id")
-    }
-  }
-}
-
 fun main() {
   embeddedServer(Netty, port = 8080) {
     install(CallLogging) {
@@ -61,7 +47,19 @@ fun main() {
     }
 
     install(RetrofitService) {
-      service(baseUrl = "api", service = BackendService)
+      service(baseUrl = "api", service = object : Service {
+        override suspend fun getAll(): List<String> {
+          return listOf("first", "second")
+        }
+
+        override suspend fun getSingle(id: Long): String {
+          return when (id) {
+            0L -> "first"
+            1L -> "second"
+            else -> throw IndexOutOfBoundsException("id=$id")
+          }
+        }
+      })
     }
   }.start(wait = true)
 }

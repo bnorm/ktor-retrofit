@@ -13,10 +13,10 @@ end point is accessed.
 ```kotlin
 interface Service {
   @GET("string")
-  fun getAll(): Call<List<String>>
+  suspend fun getAll(): List<String>
 
   @GET("string/{id}")
-  fun getSingle(@Path("id") id: Long): Call<String>
+  suspend fun getSingle(@Path("id") id: Long): String
 }
 
 fun Application.module() {
@@ -26,12 +26,12 @@ fun Application.module() {
 
   install(RetrofitService) {
     service(baseUrl = "api", service = object : Service {
-      override fun getAll(): Call<List<String>> = call {
-        return@call listOf("first", "second")
+      override suspend fun getAll(): List<String> {
+        return listOf("first", "second")
       }
 
-      override fun getSingle(id: Long): Call<String> = call {
-        return@call when (id) {
+      override suspend fun getSingle(id: Long): String {
+        return when (id) {
           0L -> "first"
           1L -> "second"
           else -> throw IndexOutOfBoundsException("id=$id")
