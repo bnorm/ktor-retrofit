@@ -17,18 +17,20 @@
 package com.bnorm.ktor.retrofit
 
 import io.ktor.application.Application
+import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.ContentNegotiation
+import io.ktor.features.StatusPages
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.jackson.jackson
+import io.ktor.response.respond
 import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.withTestApplication
 import org.junit.Test
 import org.junit.jupiter.api.Assertions.assertEquals
 import retrofit2.http.GET
 import retrofit2.http.Path
-import kotlin.test.fail
 
 interface Service {
   @GET("string")
@@ -75,22 +77,16 @@ class RetrofitServiceTest {
   }
 
   @Test
-  fun error(): Unit = withTestApplication(Application::module) {
-    try {
-      handleRequest(HttpMethod.Get, "/api/string/2")
-      fail()
-    } catch (e: IndexOutOfBoundsException) {
-      assertEquals("id=2", e.message)
+  fun error(): Unit = withTestApplication({
+    module()
+    install(StatusPages) {
+      exception<Throwable> {
+        call.respond(HttpStatusCode.InternalServerError, "Error")
+      }
     }
-
-//    application.install(StatusPages) {
-//      exception<Throwable> {
-//        call.respond(HttpStatusCode.InternalServerError, "Error")
-//      }
-//    }
-//
-//    with(handleRequest(HttpMethod.Get, "/api/string/2")) {
-//      assertEquals(HttpStatusCode.InternalServerError, response.status())
-//    }
+  }) {
+    with(handleRequest(HttpMethod.Get, "/api/string/2")) {
+      assertEquals(HttpStatusCode.InternalServerError, response.status())
+    }
   }
 }
