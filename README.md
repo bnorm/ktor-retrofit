@@ -1,4 +1,7 @@
 # ktor-retrofit
+
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.bnorm.ktor.retrofit/ktor-retrofit/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.bnorm.ktor.retrofit/ktor-retrofit)
+
 Turns a Retrofit service interface into Ktor routing. Very early stage 
 prototype.
 
