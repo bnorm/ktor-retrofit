@@ -25,6 +25,9 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.jackson.jackson
 import io.ktor.response.respond
+import io.ktor.routing.route
+import io.ktor.routing.routing
+import io.ktor.server.testing.TestApplicationEngine
 import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.withTestApplication
 import org.junit.Test
@@ -40,45 +43,68 @@ interface Service {
   suspend fun getSingle(@Path("id") id: Long): String
 }
 
-fun Application.module() {
+private val service = object : Service {
+  override suspend fun getAll(): List<String> {
+    return listOf("first", "second")
+  }
+
+  override suspend fun getSingle(id: Long): String {
+    return when (id) {
+      0L -> "first"
+      1L -> "second"
+      else -> throw IndexOutOfBoundsException("id=$id")
+    }
+  }
+}
+
+fun Application.installFeature() {
   install(ContentNegotiation) {
     jackson { }
   }
 
   install(RetrofitService) {
-    service(baseUrl = "api", service = object : Service {
-      override suspend fun getAll(): List<String> {
-        return listOf("first", "second")
-      }
+    service(baseUrl = "api", service = service)
+  }
+}
 
-      override suspend fun getSingle(id: Long): String {
-        return when (id) {
-          0L -> "first"
-          1L -> "second"
-          else -> throw IndexOutOfBoundsException("id=$id")
-        }
-      }
-    })
+fun Application.installRoute() {
+  install(ContentNegotiation) {
+    jackson { }
+  }
+
+  routing {
+    route("api") {
+      retrofitService(service = service)
+    }
+  }
+}
+
+private fun TestApplicationEngine.runSimpleTest() {
+  with(handleRequest(HttpMethod.Get, "/api/string")) {
+    assertEquals(HttpStatusCode.OK, response.status())
+    assertEquals("[\"first\",\"second\"]", response.content)
+  }
+
+  with(handleRequest(HttpMethod.Get, "/api/string/1")) {
+    assertEquals(HttpStatusCode.OK, response.status())
+    assertEquals("second", response.content)
   }
 }
 
 class RetrofitServiceTest {
   @Test
-  fun simple(): Unit = withTestApplication(Application::module) {
-    with(handleRequest(HttpMethod.Get, "/api/string")) {
-      assertEquals(HttpStatusCode.OK, response.status())
-      assertEquals("[\"first\",\"second\"]", response.content)
-    }
+  fun feature(): Unit = withTestApplication(Application::installFeature) {
+    runSimpleTest()
+  }
 
-    with(handleRequest(HttpMethod.Get, "/api/string/1")) {
-      assertEquals(HttpStatusCode.OK, response.status())
-      assertEquals("second", response.content)
-    }
+  @Test
+  fun route(): Unit = withTestApplication(Application::installRoute) {
+    runSimpleTest()
   }
 
   @Test
   fun error(): Unit = withTestApplication({
-    module()
+    installFeature()
     install(StatusPages) {
       exception<Throwable> {
         call.respond(HttpStatusCode.InternalServerError, "Error")

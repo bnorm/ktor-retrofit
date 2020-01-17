@@ -27,20 +27,24 @@ fun Application.module() {
     jackson { }
   }
 
-  install(RetrofitService) {
-    service(baseUrl = "api", service = object : Service {
-      override suspend fun getAll(): List<String> {
-        return listOf("first", "second")
-      }
+  val service = object : Service {
+    override suspend fun getAll(): List<String> {
+      return listOf("first", "second")
+    }
 
-      override suspend fun getSingle(id: Long): String {
-        return when (id) {
-          0L -> "first"
-          1L -> "second"
-          else -> throw IndexOutOfBoundsException("id=$id")
-        }
+    override suspend fun getSingle(id: Long): String {
+      return when (id) {
+        0L -> "first"
+        1L -> "second"
+        else -> throw IndexOutOfBoundsException("id=$id")
       }
-    })
+    }
+  }
+  
+  routing { 
+    route("api") {
+      retrofitService(service = service)
+    }
   }
 }
 ```

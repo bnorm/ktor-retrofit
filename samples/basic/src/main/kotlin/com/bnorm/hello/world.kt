@@ -16,11 +16,13 @@
 
 package com.bnorm.hello
 
-import com.bnorm.ktor.retrofit.RetrofitService
+import com.bnorm.ktor.retrofit.retrofitService
 import io.ktor.application.install
 import io.ktor.features.CallLogging
 import io.ktor.features.ContentNegotiation
 import io.ktor.jackson.jackson
+import io.ktor.routing.route
+import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.slf4j.event.Level
@@ -46,20 +48,24 @@ fun main() {
       jackson { }
     }
 
-    install(RetrofitService) {
-      service(baseUrl = "api", service = object : Service {
-        override suspend fun getAll(): List<String> {
-          return listOf("first", "second")
-        }
+    val service = object : Service {
+      override suspend fun getAll(): List<String> {
+        return listOf("first", "second")
+      }
 
-        override suspend fun getSingle(id: Long): String {
-          return when (id) {
-            0L -> "first"
-            1L -> "second"
-            else -> throw IndexOutOfBoundsException("id=$id")
-          }
+      override suspend fun getSingle(id: Long): String {
+        return when (id) {
+          0L -> "first"
+          1L -> "second"
+          else -> throw IndexOutOfBoundsException("id=$id")
         }
-      })
+      }
+    }
+    
+    routing { 
+      route("api") {
+        retrofitService(service = service)
+      }
     }
   }.start(wait = true)
 }

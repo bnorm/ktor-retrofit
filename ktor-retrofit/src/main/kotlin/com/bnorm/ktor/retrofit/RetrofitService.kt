@@ -55,6 +55,14 @@ import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.superclasses
 import kotlin.reflect.jvm.javaType
 
+fun Route.retrofitService(service: Any) {
+  val serviceInterface = service::class.superclasses.single { it != Any::class }
+  for (declaredFunction in serviceInterface.declaredFunctions) {
+    if (!declaredFunction.isSuspend) TODO("only suspend Retrofit functions are supported")
+    process(service, declaredFunction)
+  }
+}
+
 class RetrofitService {
   class Configuration {
     internal val services = mutableMapOf<Any, String?>()
@@ -70,138 +78,133 @@ class RetrofitService {
       configure: Configuration.() -> Unit
     ): RetrofitService {
       val config = Configuration().apply(configure)
-
       pipeline.routing {
         for (entry in config.services) {
-          val serviceInterface = entry.key::class.superclasses.single { it != Any::class }
           route(entry.value ?: "/") {
-            for (declaredFunction in serviceInterface.declaredFunctions) {
-              if (!declaredFunction.isSuspend) TODO("only suspend Retrofit functions are supported")
-              process(entry.key, declaredFunction)
-            }
+            retrofitService(entry.key)
           }
         }
       }
       return RetrofitService()
     }
+  }
+}
 
-    private fun Route.process(service: Any, function: KFunction<*>) {
-      val annotations = function.annotations
+private fun Route.process(service: Any, function: KFunction<*>) {
+  val annotations = function.annotations
 
-      val get = annotations.filterIsInstance<GET>().singleOrNull()
-      if (get != null) {
-        get(get.value) {
-          call.respond(invoke(call, service, function))
-        }
-        return
-      }
-
-      val post = annotations.filterIsInstance<POST>().singleOrNull()
-      if (post != null) {
-        post(post.value) {
-          call.respond(invoke(call, service, function))
-        }
-        return
-      }
-
-      val delete = annotations.filterIsInstance<DELETE>().singleOrNull()
-      if (delete != null) {
-        delete(delete.value) {
-          call.respond(invoke(call, service, function))
-        }
-        return
-      }
-
-      val put = annotations.filterIsInstance<PUT>().singleOrNull()
-      if (put != null) {
-        put(put.value) {
-          call.respond(invoke(call, service, function))
-        }
-        return
-      }
-
-      val patch = annotations.filterIsInstance<PATCH>().singleOrNull()
-      if (patch != null) {
-        patch(patch.value) {
-          call.respond(invoke(call, service, function))
-        }
-        return
-      }
-
-      val head = annotations.filterIsInstance<HEAD>().singleOrNull()
-      if (head != null) {
-        head(head.value) {
-          call.respond(invoke(call, service, function))
-        }
-        return
-      }
-
-      val options = annotations.filterIsInstance<OPTIONS>().singleOrNull()
-      if (options != null) {
-        options(options.value) {
-          call.respond(invoke(call, service, function))
-        }
-        return
-      }
-
-      val http = annotations.filterIsInstance<HTTP>().singleOrNull()
-      if (http != null) {
-        route(http.path, HttpMethod.parse(http.method)) {
-          handle {
-            call.respond(invoke(call, service, function))
-          }
-        }
-        return
-      }
-
-      TODO("implement the rest of the function annotations : $annotations")
+  val get = annotations.filterIsInstance<GET>().singleOrNull()
+  if (get != null) {
+    get(get.value) {
+      call.respond(invoke(call, service, function))
     }
+    return
+  }
 
-    private suspend fun invoke(
-      call: ApplicationCall,
-      service: Any,
-      function: KFunction<*>
-    ): Any {
-      val conversionService = call.application.conversionService
+  val post = annotations.filterIsInstance<POST>().singleOrNull()
+  if (post != null) {
+    post(post.value) {
+      call.respond(invoke(call, service, function))
+    }
+    return
+  }
 
-      val parameters: Array<Any?> = function.parameters.map {
-        if (it.kind == KParameter.Kind.INSTANCE) {
-          return@map service
-        }
+  val delete = annotations.filterIsInstance<DELETE>().singleOrNull()
+  if (delete != null) {
+    delete(delete.value) {
+      call.respond(invoke(call, service, function))
+    }
+    return
+  }
 
-        val path = it.annotations.filterIsInstance<Path>().singleOrNull()
-        if (path != null) {
-          val values = call.parameters.getAll(path.value)
-          if (values != null) {
-            return@map conversionService.fromValues(values, it.type.javaType)
-          } else {
-            return@map null
-          }
-        }
+  val put = annotations.filterIsInstance<PUT>().singleOrNull()
+  if (put != null) {
+    put(put.value) {
+      call.respond(invoke(call, service, function))
+    }
+    return
+  }
 
-        val query = it.annotations.filterIsInstance<Query>().singleOrNull()
-        if (query != null) {
-          val values = call.parameters.getAll(query.value)
-          if (values != null) {
-            return@map conversionService.fromValues(values, it.type.javaType)
-          } else {
-            return@map null
-          }
-        }
+  val patch = annotations.filterIsInstance<PATCH>().singleOrNull()
+  if (patch != null) {
+    patch(patch.value) {
+      call.respond(invoke(call, service, function))
+    }
+    return
+  }
 
-        val body = it.annotations.filterIsInstance<Body>().singleOrNull()
-        if (body != null) {
-          return@map call.receive(it.type.classifier as KClass<Any>)
-        }
+  val head = annotations.filterIsInstance<HEAD>().singleOrNull()
+  if (head != null) {
+    head(head.value) {
+      call.respond(invoke(call, service, function))
+    }
+    return
+  }
 
-        TODO("annotations=${it.annotations}")
-      }.toTypedArray()
+  val options = annotations.filterIsInstance<OPTIONS>().singleOrNull()
+  if (options != null) {
+    options(options.value) {
+      call.respond(invoke(call, service, function))
+    }
+    return
+  }
 
-      try {
-        return function.callSuspend(*parameters) ?: TODO()
-      } catch (t: InvocationTargetException) {
-        throw t.targetException
+  val http = annotations.filterIsInstance<HTTP>().singleOrNull()
+  if (http != null) {
+    route(http.path, HttpMethod.parse(http.method)) {
+      handle {
+        call.respond(invoke(call, service, function))
       }
     }
+    return
+  }
+
+  TODO("implement the rest of the function annotations : $annotations")
+}
+
+private suspend fun invoke(
+  call: ApplicationCall,
+  service: Any,
+  function: KFunction<*>
+): Any {
+  val conversionService = call.application.conversionService
+
+  val parameters: Array<Any?> = function.parameters.map {
+    if (it.kind == KParameter.Kind.INSTANCE) {
+      return@map service
+    }
+
+    val path = it.annotations.filterIsInstance<Path>().singleOrNull()
+    if (path != null) {
+      val values = call.parameters.getAll(path.value)
+      if (values != null) {
+        return@map conversionService.fromValues(values, it.type.javaType)
+      } else {
+        return@map null
+      }
+    }
+
+    val query = it.annotations.filterIsInstance<Query>().singleOrNull()
+    if (query != null) {
+      val values = call.parameters.getAll(query.value)
+      if (values != null) {
+        return@map conversionService.fromValues(values, it.type.javaType)
+      } else {
+        return@map null
+      }
+    }
+
+    val body = it.annotations.filterIsInstance<Body>().singleOrNull()
+    if (body != null) {
+      return@map call.receive(it.type.classifier as KClass<Any>)
+    }
+
+    TODO("annotations=${it.annotations}")
+  }.toTypedArray()
+
+  try {
+    return function.callSuspend(*parameters) ?: TODO()
+  } catch (t: InvocationTargetException) {
+    throw t.targetException
   }
 }
