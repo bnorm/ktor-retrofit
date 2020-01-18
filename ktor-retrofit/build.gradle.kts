@@ -15,8 +15,10 @@ dependencies {
 
   testImplementation("org.junit.jupiter:junit-jupiter-api:5.1.1")
   testRuntime("org.junit.jupiter:junit-jupiter-engine:5.1.1")
+
   testImplementation("io.ktor:ktor-server-test-host:1.2.5")
   testImplementation("io.ktor:ktor-jackson:1.2.5")
+  testImplementation("io.ktor:ktor-auth:1.2.5")
 }
 
 tasks.withType<KotlinCompile> {

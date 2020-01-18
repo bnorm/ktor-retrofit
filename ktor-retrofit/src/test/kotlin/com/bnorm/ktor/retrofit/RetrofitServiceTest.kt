@@ -32,30 +32,6 @@ import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.withTestApplication
 import org.junit.Test
 import org.junit.jupiter.api.Assertions.assertEquals
-import retrofit2.http.GET
-import retrofit2.http.Path
-
-interface Service {
-  @GET("string")
-  suspend fun getAll(): List<String>
-
-  @GET("string/{id}")
-  suspend fun getSingle(@Path("id") id: Long): String
-}
-
-private val service = object : Service {
-  override suspend fun getAll(): List<String> {
-    return listOf("first", "second")
-  }
-
-  override suspend fun getSingle(id: Long): String {
-    return when (id) {
-      0L -> "first"
-      1L -> "second"
-      else -> throw IndexOutOfBoundsException("id=$id")
-    }
-  }
-}
 
 fun Application.installFeature() {
   install(ContentNegotiation) {
