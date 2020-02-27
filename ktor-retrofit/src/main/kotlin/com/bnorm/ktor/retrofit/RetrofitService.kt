@@ -56,11 +56,20 @@ import kotlin.reflect.full.superclasses
 import kotlin.reflect.jvm.javaType
 
 fun Route.retrofitService(service: Any) {
-  val serviceInterface = service::class.superclasses.single { it != Any::class }
+/*  val serviceInterface = service::class.superclasses.single { it != Any::class }
   for (declaredFunction in serviceInterface.declaredFunctions) {
     if (!declaredFunction.isSuspend) TODO("only suspend Retrofit functions are supported")
     process(service, declaredFunction)
-  }
+  }*/
+  service::class.superclasses
+    .filter { it != Any::class }
+    .forEach { serviceInterface ->
+      serviceInterface.declaredFunctions
+        .forEach { declaredFunction ->
+          if (!declaredFunction.isSuspend) TODO("only suspend Retrofit functions are supported")
+          process(service, declaredFunction)
+        }
+    }
 }
 
 class RetrofitService {
