@@ -16,44 +16,17 @@
 
 package com.bnorm.ktor.retrofit
 
-import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
-import io.ktor.features.ContentNegotiation
 import io.ktor.features.StatusPages
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import io.ktor.jackson.jackson
 import io.ktor.response.respond
-import io.ktor.routing.route
-import io.ktor.routing.routing
 import io.ktor.server.testing.TestApplicationEngine
 import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.withTestApplication
 import org.junit.Test
 import org.junit.jupiter.api.Assertions.assertEquals
-
-fun Application.installFeature() {
-  install(ContentNegotiation) {
-    jackson { }
-  }
-
-  install(RetrofitService) {
-    service(baseUrl = "api", service = service)
-  }
-}
-
-fun Application.installRoute() {
-  install(ContentNegotiation) {
-    jackson { }
-  }
-
-  routing {
-    route("api") {
-      retrofitService(service = service)
-    }
-  }
-}
 
 private fun TestApplicationEngine.runSimpleTest() {
   with(handleRequest(HttpMethod.Get, "/api/string")) {
@@ -69,18 +42,18 @@ private fun TestApplicationEngine.runSimpleTest() {
 
 class RetrofitServiceTest {
   @Test
-  fun feature(): Unit = withTestApplication(Application::installFeature) {
+  fun feature(): Unit = withTestApplication(installFeature(service)) {
     runSimpleTest()
   }
 
   @Test
-  fun route(): Unit = withTestApplication(Application::installRoute) {
+  fun route(): Unit = withTestApplication(installRoute(service)) {
     runSimpleTest()
   }
 
   @Test
   fun error(): Unit = withTestApplication({
-    installFeature()
+    installFeature(service).invoke(this)
     install(StatusPages) {
       exception<Throwable> {
         call.respond(HttpStatusCode.InternalServerError, "Error")
@@ -89,6 +62,7 @@ class RetrofitServiceTest {
   }) {
     with(handleRequest(HttpMethod.Get, "/api/string/2")) {
       assertEquals(HttpStatusCode.InternalServerError, response.status())
+      assertEquals("Error", response.content)
     }
   }
 }

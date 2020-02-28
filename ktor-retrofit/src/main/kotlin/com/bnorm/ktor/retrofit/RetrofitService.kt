@@ -22,8 +22,10 @@ import io.ktor.application.ApplicationFeature
 import io.ktor.application.call
 import io.ktor.features.conversionService
 import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
 import io.ktor.response.respond
+import io.ktor.response.respondOutputStream
 import io.ktor.routing.Route
 import io.ktor.routing.delete
 import io.ktor.routing.get
@@ -35,6 +37,8 @@ import io.ktor.routing.put
 import io.ktor.routing.route
 import io.ktor.routing.routing
 import io.ktor.util.AttributeKey
+import okio.Okio
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -100,7 +104,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   val get = annotations.filterIsInstance<GET>().singleOrNull()
   if (get != null) {
     get(get.value) {
-      call.respond(invoke(call, service, function))
+      respond(call, service, function)
     }
     return
   }
@@ -108,7 +112,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   val post = annotations.filterIsInstance<POST>().singleOrNull()
   if (post != null) {
     post(post.value) {
-      call.respond(invoke(call, service, function))
+      respond(call, service, function)
     }
     return
   }
@@ -116,7 +120,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   val delete = annotations.filterIsInstance<DELETE>().singleOrNull()
   if (delete != null) {
     delete(delete.value) {
-      call.respond(invoke(call, service, function))
+      respond(call, service, function)
     }
     return
   }
@@ -124,7 +128,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   val put = annotations.filterIsInstance<PUT>().singleOrNull()
   if (put != null) {
     put(put.value) {
-      call.respond(invoke(call, service, function))
+      respond(call, service, function)
     }
     return
   }
@@ -132,7 +136,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   val patch = annotations.filterIsInstance<PATCH>().singleOrNull()
   if (patch != null) {
     patch(patch.value) {
-      call.respond(invoke(call, service, function))
+      respond(call, service, function)
     }
     return
   }
@@ -140,7 +144,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   val head = annotations.filterIsInstance<HEAD>().singleOrNull()
   if (head != null) {
     head(head.value) {
-      call.respond(invoke(call, service, function))
+      respond(call, service, function)
     }
     return
   }
@@ -148,7 +152,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   val options = annotations.filterIsInstance<OPTIONS>().singleOrNull()
   if (options != null) {
     options(options.value) {
-      call.respond(invoke(call, service, function))
+      respond(call, service, function)
     }
     return
   }
@@ -157,13 +161,34 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   if (http != null) {
     route(http.path, HttpMethod.parse(http.method)) {
       handle {
-        call.respond(invoke(call, service, function))
+        respond(call, service, function)
       }
     }
     return
   }
 
   TODO("implement the rest of the function annotations : $annotations")
+}
+
+private suspend fun respond(call: ApplicationCall, service: Any, function: KFunction<*>) {
+  val response = invoke(call, service, function)
+
+  if (response is Response<*>) {
+    call.response.status(HttpStatusCode.fromValue(response.code()))
+    if (response.isSuccessful) {
+      call.respond(response.body()!!)
+    } else {
+      call.respondOutputStream {
+        response.errorBody()!!.use { error ->
+          Okio.buffer(Okio.sink(this)).use { sink ->
+            sink.writeAll(error.source())
+          }
+        }
+      }
+    }
+  } else {
+    call.respond(response)
+  }
 }
 
 private suspend fun invoke(
