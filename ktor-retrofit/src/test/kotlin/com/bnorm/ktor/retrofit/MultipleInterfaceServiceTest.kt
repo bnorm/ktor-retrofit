@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-/**
- * @author Josh Feinberg (joshafeinberg)
- */
-
 package com.bnorm.ktor.retrofit
 
 import io.ktor.application.Application
