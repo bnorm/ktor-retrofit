@@ -26,6 +26,8 @@ import io.ktor.routing.routing
 typealias ApplicationScope = Application.() -> Unit
 
 fun installFeature(service: Any): ApplicationScope = {
+  registeredRoutes.clear()
+
   install(ContentNegotiation) {
     jackson { }
   }
@@ -36,6 +38,8 @@ fun installFeature(service: Any): ApplicationScope = {
 }
 
 fun installRoute(service: Any): ApplicationScope = {
+  registeredRoutes.clear()
+
   install(ContentNegotiation) {
     jackson { }
   }

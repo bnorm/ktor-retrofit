@@ -60,7 +60,7 @@ import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.superclasses
 import kotlin.reflect.jvm.javaType
 
-private val registeredRoutes = mutableMapOf<HttpMethod, Set<RegisteredRoute>>()
+internal val registeredRoutes = mutableMapOf<HttpMethod, Set<RegisteredRoute>>()
 
 fun Route.retrofitService(service: Any) {
   service::class.superclasses
@@ -106,7 +106,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val get = annotations.filterIsInstance<GET>().singleOrNull()
   if (get != null) {
-    checkRegisteredRoute(HttpMethod.Get, get.value, function.name)
+    checkRegisteredRoute(HttpMethod.Get, this, get.value, function.name)
     get(get.value) {
       respond(call, service, function)
     }
@@ -115,7 +115,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val post = annotations.filterIsInstance<POST>().singleOrNull()
   if (post != null) {
-    checkRegisteredRoute(HttpMethod.Post, post.value, function.name)
+    checkRegisteredRoute(HttpMethod.Post, this, post.value, function.name)
     post(post.value) {
       respond(call, service, function)
     }
@@ -124,7 +124,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val delete = annotations.filterIsInstance<DELETE>().singleOrNull()
   if (delete != null) {
-    checkRegisteredRoute(HttpMethod.Delete, delete.value, function.name)
+    checkRegisteredRoute(HttpMethod.Delete, this, delete.value, function.name)
     delete(delete.value) {
       respond(call, service, function)
     }
@@ -133,7 +133,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val put = annotations.filterIsInstance<PUT>().singleOrNull()
   if (put != null) {
-    checkRegisteredRoute(HttpMethod.Put, put.value, function.name)
+    checkRegisteredRoute(HttpMethod.Put, this, put.value, function.name)
     put(put.value) {
       respond(call, service, function)
     }
@@ -142,7 +142,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val patch = annotations.filterIsInstance<PATCH>().singleOrNull()
   if (patch != null) {
-    checkRegisteredRoute(HttpMethod.Patch, patch.value, function.name)
+    checkRegisteredRoute(HttpMethod.Patch, this, patch.value, function.name)
     patch(patch.value) {
       respond(call, service, function)
     }
@@ -151,7 +151,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val head = annotations.filterIsInstance<HEAD>().singleOrNull()
   if (head != null) {
-    checkRegisteredRoute(HttpMethod.Head, head.value, function.name)
+    checkRegisteredRoute(HttpMethod.Head, this, head.value, function.name)
     head(head.value) {
       respond(call, service, function)
     }
@@ -160,7 +160,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val options = annotations.filterIsInstance<OPTIONS>().singleOrNull()
   if (options != null) {
-    checkRegisteredRoute(HttpMethod.Options, options.value, function.name)
+    checkRegisteredRoute(HttpMethod.Options, this, options.value, function.name)
     options(options.value) {
       respond(call, service, function)
     }
@@ -170,7 +170,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   val http = annotations.filterIsInstance<HTTP>().singleOrNull()
   if (http != null) {
     val method = HttpMethod.parse(http.method)
-    checkRegisteredRoute(method, http.path, function.name)
+    checkRegisteredRoute(method, this, http.path, function.name)
     route(http.path, method) {
       handle {
         respond(call, service, function)
@@ -182,8 +182,13 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   TODO("implement the rest of the function annotations : $annotations")
 }
 
-private fun checkRegisteredRoute(method: HttpMethod, path: String, methodName: String) {
-  val newRoute = RegisteredRoute(method, path, methodName)
+private fun checkRegisteredRoute(
+  method: HttpMethod,
+  baseUrl: Route,
+  path: String,
+  methodName: String
+) {
+  val newRoute = RegisteredRoute(method, baseUrl.toString(), path, methodName)
   val registeredPaths = registeredRoutes.getOrDefault(method, mutableSetOf())
   if (registeredPaths.contains(newRoute)) {
     throw IllegalStateException("@${method.value}(\"$path\") is already registered")

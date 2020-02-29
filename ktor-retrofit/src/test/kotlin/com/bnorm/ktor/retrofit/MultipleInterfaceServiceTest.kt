@@ -16,44 +16,17 @@
 
 package com.bnorm.ktor.retrofit
 
-import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
-import io.ktor.features.ContentNegotiation
 import io.ktor.features.StatusPages
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import io.ktor.jackson.jackson
 import io.ktor.response.respond
-import io.ktor.routing.route
-import io.ktor.routing.routing
 import io.ktor.server.testing.TestApplicationEngine
 import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.withTestApplication
 import org.junit.Test
 import org.junit.jupiter.api.Assertions.assertEquals
-
-fun Application.installMultipleFeature() {
-  install(ContentNegotiation) {
-    jackson { }
-  }
-
-  install(RetrofitService) {
-    service(baseUrl = "api", service = multipleInterfaceService)
-  }
-}
-
-fun Application.installMultipleRoute() {
-  install(ContentNegotiation) {
-    jackson { }
-  }
-
-  routing {
-    route("api") {
-      retrofitService(service = multipleInterfaceService)
-    }
-  }
-}
 
 private fun TestApplicationEngine.runMultipleInterfaceTest() {
   with(handleRequest(HttpMethod.Get, "/api/string")) {
@@ -70,18 +43,18 @@ private fun TestApplicationEngine.runMultipleInterfaceTest() {
 
 class MultipleInterfaceServiceTest {
   @Test
-  fun feature(): Unit = withTestApplication(Application::installMultipleFeature) {
+  fun feature(): Unit = withTestApplication(installFeature(multipleInterfaceService)) {
     runMultipleInterfaceTest()
   }
 
   @Test
-  fun route(): Unit = withTestApplication(Application::installMultipleRoute) {
+  fun route(): Unit = withTestApplication(installRoute(multipleInterfaceService)) {
     runMultipleInterfaceTest()
   }
 
   @Test
   fun error(): Unit = withTestApplication({
-    installMultipleFeature()
+    installFeature(multipleInterfaceService).invoke(this)
     install(StatusPages) {
       exception<Throwable> {
         call.respond(HttpStatusCode.InternalServerError, "Error")

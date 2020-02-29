@@ -4,6 +4,7 @@ import io.ktor.http.HttpMethod
 
 data class RegisteredRoute private constructor(
     val method: HttpMethod,
+    val baseUrl: String?,
     val route: String
 ) {
     // not included in constructor for equals/hashcode
@@ -12,9 +13,10 @@ data class RegisteredRoute private constructor(
 
     constructor(
         method: HttpMethod,
+        baseUrl: String?,
         route: String,
         methodName: String
-    ) : this(method, route) {
+    ) : this(method, baseUrl, route) {
         this.methodName = methodName
     }
 }
