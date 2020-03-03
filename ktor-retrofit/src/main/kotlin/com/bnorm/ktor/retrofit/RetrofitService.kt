@@ -60,16 +60,20 @@ import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.superclasses
 import kotlin.reflect.jvm.javaType
 
-internal val registeredRoutes = mutableMapOf<HttpMethod, Set<RegisteredRoute>>()
+private val injectorKey = AttributeKey<MutableMap<HttpMethod, MutableSet<RegisteredRoute>>>("routes")
 
 fun Route.retrofitService(service: Any) {
+  if (!attributes.contains(injectorKey)) {
+    attributes.put(injectorKey, mutableMapOf())
+  }
+
   service::class.superclasses
     .filter { it != Any::class }
     .forEach { serviceInterface ->
       serviceInterface.declaredFunctions
         .forEach { declaredFunction ->
           if (!declaredFunction.isSuspend) TODO("only suspend Retrofit functions are supported")
-          process(service, declaredFunction)
+          process(service, serviceInterface, declaredFunction)
         }
     }
 }
@@ -101,12 +105,12 @@ class RetrofitService {
   }
 }
 
-private fun Route.process(service: Any, function: KFunction<*>) {
+private fun Route.process(service: Any, serviceInterface: KClass<*>, function: KFunction<*>) {
   val annotations = function.annotations
 
   val get = annotations.filterIsInstance<GET>().singleOrNull()
   if (get != null) {
-    checkRegisteredRoute(HttpMethod.Get, this, get.value, function.name)
+    checkRegisteredRoute(HttpMethod.Get, this, get.value, serviceInterface, function.name)
     get(get.value) {
       respond(call, service, function)
     }
@@ -115,7 +119,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val post = annotations.filterIsInstance<POST>().singleOrNull()
   if (post != null) {
-    checkRegisteredRoute(HttpMethod.Post, this, post.value, function.name)
+    checkRegisteredRoute(HttpMethod.Post, this, post.value, serviceInterface, function.name)
     post(post.value) {
       respond(call, service, function)
     }
@@ -124,7 +128,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val delete = annotations.filterIsInstance<DELETE>().singleOrNull()
   if (delete != null) {
-    checkRegisteredRoute(HttpMethod.Delete, this, delete.value, function.name)
+    checkRegisteredRoute(HttpMethod.Delete, this, delete.value, serviceInterface, function.name)
     delete(delete.value) {
       respond(call, service, function)
     }
@@ -133,7 +137,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val put = annotations.filterIsInstance<PUT>().singleOrNull()
   if (put != null) {
-    checkRegisteredRoute(HttpMethod.Put, this, put.value, function.name)
+    checkRegisteredRoute(HttpMethod.Put, this, put.value, serviceInterface, function.name)
     put(put.value) {
       respond(call, service, function)
     }
@@ -142,7 +146,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val patch = annotations.filterIsInstance<PATCH>().singleOrNull()
   if (patch != null) {
-    checkRegisteredRoute(HttpMethod.Patch, this, patch.value, function.name)
+    checkRegisteredRoute(HttpMethod.Patch, this, patch.value, serviceInterface, function.name)
     patch(patch.value) {
       respond(call, service, function)
     }
@@ -151,7 +155,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val head = annotations.filterIsInstance<HEAD>().singleOrNull()
   if (head != null) {
-    checkRegisteredRoute(HttpMethod.Head, this, head.value, function.name)
+    checkRegisteredRoute(HttpMethod.Head, this, head.value, serviceInterface, function.name)
     head(head.value) {
       respond(call, service, function)
     }
@@ -160,7 +164,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
 
   val options = annotations.filterIsInstance<OPTIONS>().singleOrNull()
   if (options != null) {
-    checkRegisteredRoute(HttpMethod.Options, this, options.value, function.name)
+    checkRegisteredRoute(HttpMethod.Options, this, options.value, serviceInterface, function.name)
     options(options.value) {
       respond(call, service, function)
     }
@@ -170,7 +174,7 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   val http = annotations.filterIsInstance<HTTP>().singleOrNull()
   if (http != null) {
     val method = HttpMethod.parse(http.method)
-    checkRegisteredRoute(method, this, http.path, function.name)
+    checkRegisteredRoute(method, this, http.path, serviceInterface, function.name)
     route(http.path, method) {
       handle {
         respond(call, service, function)
@@ -182,18 +186,21 @@ private fun Route.process(service: Any, function: KFunction<*>) {
   TODO("implement the rest of the function annotations : $annotations")
 }
 
-private fun checkRegisteredRoute(
+private fun Route.checkRegisteredRoute(
   method: HttpMethod,
   baseUrl: Route,
   path: String,
+  serviceInterface: KClass<*>,
   methodName: String
 ) {
-  val newRoute = RegisteredRoute(method, baseUrl.toString(), path, methodName)
-  val registeredPaths = registeredRoutes.getOrDefault(method, mutableSetOf())
-  if (registeredPaths.contains(newRoute)) {
-    throw IllegalStateException("@${method.value}(\"$path\") is already registered")
+  val registeredRoutes = attributes[injectorKey]
+  val newRoute = RegisteredRoute(method, baseUrl.toString(), path, serviceInterface.qualifiedName, methodName)
+  val registeredPaths = registeredRoutes.getOrPut(method) { mutableSetOf() }
+  val registeredPath = registeredPaths.firstOrNull { registeredPath -> registeredPath == newRoute }
+  if (registeredPath != null) {
+    throw IllegalStateException("@${method.value}(\"$path\") is already registered in ${registeredPath.serviceInterface}::${registeredPath.methodName}")
   }
-  registeredRoutes[method] = registeredPaths.toMutableSet().apply { add(newRoute) }
+  registeredRoutes[method] = registeredPaths.apply { add(newRoute) }
 }
 
 private suspend fun respond(call: ApplicationCall, service: Any, function: KFunction<*>) {

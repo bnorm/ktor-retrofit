@@ -6,7 +6,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ExpectedException
 
-
 class DuplicateRouteServiceTest {
 
     @Rule @JvmField
@@ -15,7 +14,7 @@ class DuplicateRouteServiceTest {
     @Test
     fun feature() {
         exceptionRule.expect(IllegalStateException::class.java)
-        exceptionRule.expectMessage("@GET(\"route\") is already registered")
+        exceptionRule.expectMessage(EXPECTED_ERROR_MESSAGE)
         withTestApplication(installFeature(duplicateRouteService)) {
         }
     }
@@ -23,8 +22,10 @@ class DuplicateRouteServiceTest {
     @Test
     fun route() {
         exceptionRule.expect(IllegalStateException::class.java)
-        exceptionRule.expectMessage("@GET(\"route\") is already registered")
+        exceptionRule.expectMessage(EXPECTED_ERROR_MESSAGE)
         withTestApplication(installRoute(duplicateRouteService)) {
         }
     }
 }
+
+private const val EXPECTED_ERROR_MESSAGE = "@GET(\"route\") is already registered in com.bnorm.ktor.retrofit.DuplicateRouteService::getRoute"
