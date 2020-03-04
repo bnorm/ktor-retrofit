@@ -60,7 +60,7 @@ import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.superclasses
 import kotlin.reflect.jvm.javaType
 
-private val injectorKey = AttributeKey<MutableMap<HttpMethod, MutableSet<RegisteredRoute>>>("routes")
+private val injectorKey = AttributeKey<MutableMap<RegisteredRoute, RegisteredRoute>>("routes")
 
 fun Route.retrofitService(service: Any) {
   if (!attributes.contains(injectorKey)) {
@@ -195,12 +195,11 @@ private fun Route.checkRegisteredRoute(
 ) {
   val registeredRoutes = attributes[injectorKey]
   val newRoute = RegisteredRoute(method, baseUrl.toString(), path, serviceInterface.qualifiedName, methodName)
-  val registeredPaths = registeredRoutes.getOrPut(method) { mutableSetOf() }
-  val registeredPath = registeredPaths.firstOrNull { registeredPath -> registeredPath == newRoute }
+  val registeredPath = registeredRoutes[newRoute]
   if (registeredPath != null) {
     throw IllegalStateException("@${method.value}(\"$path\") is already registered in ${registeredPath.serviceInterface}::${registeredPath.methodName}")
   }
-  registeredRoutes[method] = registeredPaths.apply { add(newRoute) }
+  registeredRoutes[newRoute] = newRoute
 }
 
 private suspend fun respond(call: ApplicationCall, service: Any, function: KFunction<*>) {
